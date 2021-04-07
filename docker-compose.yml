@@ -1,0 +1,10 @@
+version: '2.0'
+
+services:
+    modem_manager:
+        build: ./
+        privileged: true
+        volumes:
+            - "/var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket"
+        ports:
+            - 9898:9898
