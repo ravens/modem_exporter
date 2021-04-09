@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/maltegrosse/go-modemmanager"
 	"github.com/prometheus/client_golang/prometheus"
@@ -272,6 +273,8 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 			continue
 		}
 
+		time.Sleep(2 * time.Second)
+
 		currentSignal, err := modemSignal.GetCurrentSignals()
 		if err != nil {
 			log.Println(err)
@@ -288,13 +291,11 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 			)
 		}
 
-		// TODO(YG): Improve
-		// do not disengage the signal report as this could lead to specific metrics missing (i.e. signal not reported at scraping time)
-		/*	err = modemSignal.Setup(0)
-			if err != nil {
-				log.Println(err)
-				continue
-		}*/
+		err = modemSignal.Setup(0)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
 
 	}
 
