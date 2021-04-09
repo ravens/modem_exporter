@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/maltegrosse/go-modemmanager"
 	"github.com/prometheus/client_golang/prometheus"
@@ -15,6 +16,8 @@ const namespace = "modem"
 const subsystem = ""
 
 var (
+	modemlabels = []string{"imei", "icc", "imsi", "operatorid", "operator", "v_operator", "rat"}
+
 	listenAddress = flag.String("web.listen-address", ":9898",
 		"Address to listen on for telemetry")
 	metricsPath = flag.String("web.telemetry-path", "/metrics",
@@ -29,25 +32,49 @@ var (
 	roaming = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, subsystem, "roaming"),
 		"Is the modem roaming",
-		[]string{"imei", "icc", "imsi", "operatorid", "operator"}, nil,
+		modemlabels, nil,
 	)
 
 	operatorcode = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, subsystem, "operatorcode"),
 		"Code of the operator currently used by the modem",
-		[]string{"imei", "icc", "imsi", "operatorid", "operator"}, nil,
+		modemlabels, nil,
 	)
 
 	rssi = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, subsystem, "rssi"),
 		"Level of signal reported by the modem",
-		[]string{"imei", "icc", "imsi", "operatorid", "operator"}, nil,
+		modemlabels, nil,
 	)
 
 	rsrp = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, subsystem, "rsrp"),
 		"Level of noise reported by the modem",
-		[]string{"imei", "icc", "imsi", "operatorid", "operator"}, nil,
+		modemlabels, nil,
+	)
+
+	registered = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, subsystem, "registered"),
+		"Is the modem registered",
+		modemlabels, nil,
+	)
+
+	cellid = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, subsystem, "cellid"),
+		"CellID currently used by the modem",
+		modemlabels, nil,
+	)
+
+	tac = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, subsystem, "tac"),
+		"TAC currently used by the modem",
+		modemlabels, nil,
+	)
+
+	lac = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, subsystem, "lac"),
+		"LAC currently used by the modem",
+		modemlabels, nil,
 	)
 )
 
@@ -123,6 +150,88 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 			continue
 		}
 
+		opName, err := modem3gpp.GetOperatorName()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		ratList, err := modem.GetAccessTechnologies()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		if len(ratList) != 1 {
+			log.Println(err)
+			continue
+		}
+
+		rat := strings.ToLower(ratList[0].String())
+
+		state, err := modem.GetState()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		if state.String() == "Registered" {
+			ch <- prometheus.MustNewConstMetric(
+				registered, prometheus.GaugeValue, 1, imei, simIdent, simImsi, simOpIdent, simOp, opName, rat,
+			)
+		} else {
+			ch <- prometheus.MustNewConstMetric(
+				registered, prometheus.GaugeValue, 0, imei, simIdent, simImsi, simOpIdent, simOp, opName, rat,
+			)
+		}
+
+		// failure reason
+		_, err = modem.GetStateFailedReason()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		modemLocation, err := modem.GetLocation()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		mloc, err := modemLocation.GetCurrentLocation()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		cellID := mloc.ThreeGppLacCi.Ci
+
+		if decCellID, err := strconv.ParseInt(cellID, 16, 64); err == nil {
+			ch <- prometheus.MustNewConstMetric(
+				cellid, prometheus.GaugeValue, float64(decCellID), imei, simIdent, simImsi, simOpIdent, simOp, opName, rat,
+			)
+		} else {
+			log.Println(err)
+		}
+
+		lAC := mloc.ThreeGppLacCi.Lac
+		if decLAC, err := strconv.ParseInt(lAC, 16, 64); err == nil {
+			ch <- prometheus.MustNewConstMetric(
+				lac, prometheus.GaugeValue, float64(decLAC), imei, simIdent, simImsi, simOpIdent, simOp, opName, rat,
+			)
+		} else {
+			log.Println(err)
+		}
+
+		tAC := mloc.ThreeGppLacCi.Tac
+		if decTAC, err := strconv.ParseInt(tAC, 16, 64); err == nil {
+			ch <- prometheus.MustNewConstMetric(
+				tac, prometheus.GaugeValue, float64(decTAC), imei, simIdent, simImsi, simOpIdent, simOp, opName, rat,
+			)
+		} else {
+			log.Println(err)
+		}
+
 		regState, err := modem3gpp.GetRegistrationState()
 		if err != nil {
 			log.Println(err)
@@ -131,11 +240,11 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 
 		if regState.String() == "Roaming" {
 			ch <- prometheus.MustNewConstMetric(
-				roaming, prometheus.GaugeValue, 1, imei, simIdent, simImsi, simOpIdent, simOp,
+				roaming, prometheus.GaugeValue, 1, imei, simIdent, simImsi, simOpIdent, simOp, opName, rat,
 			)
 		} else {
 			ch <- prometheus.MustNewConstMetric(
-				roaming, prometheus.GaugeValue, 0, imei, simIdent, simImsi, simOpIdent, simOp,
+				roaming, prometheus.GaugeValue, 0, imei, simIdent, simImsi, simOpIdent, simOp, opName, rat,
 			)
 		}
 
@@ -147,7 +256,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 
 		if s, err := strconv.ParseFloat(opCode, 64); err == nil {
 			ch <- prometheus.MustNewConstMetric(
-				operatorcode, prometheus.GaugeValue, s, imei, simIdent, simImsi, simOpIdent, simOp,
+				operatorcode, prometheus.GaugeValue, s, imei, simIdent, simImsi, simOpIdent, simOp, opName, rat,
 			)
 		}
 
@@ -171,19 +280,21 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 
 		for _, sp := range currentSignal {
 			ch <- prometheus.MustNewConstMetric(
-				rssi, prometheus.GaugeValue, sp.Rssi, imei, simIdent, simImsi, simOpIdent, simOp,
+				rssi, prometheus.GaugeValue, sp.Rssi, imei, simIdent, simImsi, simOpIdent, simOp, opName, rat,
 			)
 
 			ch <- prometheus.MustNewConstMetric(
-				rsrp, prometheus.GaugeValue, sp.Rsrp, imei, simIdent, simImsi, simOpIdent, simOp,
+				rsrp, prometheus.GaugeValue, sp.Rsrp, imei, simIdent, simImsi, simOpIdent, simOp, opName, rat,
 			)
 		}
 
-		err = modemSignal.Setup(0)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
+		// TODO(YG): Improve
+		// do not disengage the signal report as this could lead to specific metrics missing (i.e. signal not reported at scraping time)
+		/*	err = modemSignal.Setup(0)
+			if err != nil {
+				log.Println(err)
+				continue
+		}*/
 
 	}
 
