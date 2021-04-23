@@ -2,8 +2,10 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -180,6 +182,42 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 		if err != nil {
 			log.Println(err)
 			continue
+		}
+
+		// if we are registered, we should try to connect
+		if state.String() == "Registered" {
+
+			apn := os.Getenv("MODEM_EXPORTER_APN")
+
+			if apn != "" {
+
+				bearers, _ := modem.GetBearers()
+
+				// delete all bearer - if registered but no bearer something is likely wrong
+				for _, bearer := range bearers {
+					bearer.Disconnect()
+					err = modem.DeleteBearer(bearer)
+					if err != nil {
+						log.Println(err)
+						continue
+					}
+				}
+
+				modemSimple, err := modem.GetSimpleModem()
+				if err != nil {
+					log.Println(err)
+				} else {
+					property := modemmanager.SimpleProperties{Apn: apn}
+					newBearer, err := modemSimple.Connect(property)
+					if err != nil {
+						log.Println(err)
+					} else {
+						fmt.Println("New Bearer: ", newBearer)
+					}
+				}
+
+			}
+
 		}
 
 		if state.String() == "Registered" || state.String() == "Connected" {

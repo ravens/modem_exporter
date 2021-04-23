@@ -9,6 +9,10 @@ This exporter is basically piggy-backing on ModemManager and some [golang bindin
 
 Default port is 9898 and endpoint is http://EXPORTERENDPOINT:9898/metrics.
 
+## APN connection
+
+if the variable MODEM_EXPORTER_APN is populated, the modem will try to establish a minimal bearer with the provided string value each time the metrics URL is polled. 
+
 ## Metrics exported
 
 Right now are exposed:
@@ -25,6 +29,9 @@ modem_roaming{icc="0000000000000000000",imei="00000000000000",imsi="000000000000
 # HELP modem_registered Is the modem registered
 # TYPE modem_registered gauge
 modem_registered{icc="0000000000000000000",imei="00000000000000",imsi="00000000000000",operator="foobar",operatorid="00101",rat="lte",v_operator="VisitedNetwork"} 1
+# HELP modem_connected Is the modem connected
+# TYPE modem_connected gauge
+modem_connected{icc="0000000000000000000",imei="00000000000000",imsi="00000000000000",operator="foobar",operatorid="00101",rat="lte",v_operator="VisitedNetwork"} 1
 # HELP modem_operatorcode Code of the operator currently used by the modem
 # TYPE modem_operatorcode gauge
 modem_operatorcode{icc="0000000000000000000",imei="00000000000000",imsi="00000000000000",operator="foobar",operatorid="00101",rat="lte",v_operator="VisitedNetwork"} 00101
