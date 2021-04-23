@@ -60,6 +60,12 @@ var (
 		modemlabels, nil,
 	)
 
+	connected = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, subsystem, "connected"),
+		"Is the modem connected",
+		modemlabels, nil,
+	)
+
 	cellid = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, subsystem, "cellid"),
 		"CellID currently used by the modem",
@@ -176,13 +182,23 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 			continue
 		}
 
-		if state.String() == "Registered" {
+		if state.String() == "Registered" || state.String() == "Connected" {
 			ch <- prometheus.MustNewConstMetric(
 				registered, prometheus.GaugeValue, 1, imei, simIdent, simImsi, simOpIdent, simOp, opName, rat,
 			)
 		} else {
 			ch <- prometheus.MustNewConstMetric(
 				registered, prometheus.GaugeValue, 0, imei, simIdent, simImsi, simOpIdent, simOp, opName, rat,
+			)
+		}
+
+		if state.String() == "Connected" {
+			ch <- prometheus.MustNewConstMetric(
+				connected, prometheus.GaugeValue, 1, imei, simIdent, simImsi, simOpIdent, simOp, opName, rat,
+			)
+		} else {
+			ch <- prometheus.MustNewConstMetric(
+				connected, prometheus.GaugeValue, 0, imei, simIdent, simImsi, simOpIdent, simOp, opName, rat,
 			)
 		}
 
