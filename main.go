@@ -118,6 +118,22 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	)
 
 	for _, modem := range modems {
+
+		state, err := modem.GetState()
+		if err != nil {
+			log.Println("cannot get modem state:" + err.Error())
+			continue
+		}
+
+		if state.String() == "Disabled" {
+			log.Println("modem disabled, trying to enable it")
+			err = modem.Enable()
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+		}
+
 		sim, err := modem.GetSim()
 		if err != nil {
 			log.Println(err)
@@ -178,9 +194,9 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 
 		rat := strings.ToLower(ratList[0].String())
 
-		state, err := modem.GetState()
+		state, err = modem.GetState()
 		if err != nil {
-			log.Println(err)
+			log.Println("cannot get modem state:" + err.Error())
 			continue
 		}
 
