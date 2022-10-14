@@ -56,6 +56,28 @@ var (
 		modemlabels, nil,
 	)
 
+	//Aqui faltan parametros de rsrq The LTE RSRQ (Reference Signal Received Quality), in dB, given as a floating point value (signature "d").
+	// "snr" The LTE S/R ratio, in dB, given as a floating point value (signature "d").
+
+	rsrq = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, subsystem, "rsrq"),
+		"Reference Signal Received Quality",
+		modemlabels, nil,
+	)
+
+	snr = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, subsystem, "snr"),
+		"The LTE S/R ratio",
+		modemlabels, nil,
+	)
+
+	sinr = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, subsystem, "sinr"),
+		"Signal-to-interference-plus-noise ratio",
+		modemlabels, nil,
+	)
+	/// he copiado los dos bloques anteriores
+
 	registered = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, subsystem, "registered"),
 		"Is the modem registered",
@@ -102,6 +124,11 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- operatorcode
 	ch <- rssi
 	ch <- rsrp
+	// añadi estos dos
+	ch <- snr
+	ch <- sinr
+	ch <- rsrq
+	// fin
 	ch <- roaming
 }
 
@@ -359,6 +386,18 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 			ch <- prometheus.MustNewConstMetric(
 				rsrp, prometheus.GaugeValue, sp.Rsrp, imei, simIdent, simImsi, simOpIdent, simOp, opName, rat,
 			)
+			// nuevas medidas
+			ch <- prometheus.MustNewConstMetric(
+				snr, prometheus.GaugeValue, sp.Snr, imei, simIdent, simImsi, simOpIdent, simOp, opName, rat,
+			)
+
+			ch <- prometheus.MustNewConstMetric(
+				sinr, prometheus.GaugeValue, sp.Sinr, imei, simIdent, simImsi, simOpIdent, simOp, opName, rat,
+			)
+			ch <- prometheus.MustNewConstMetric(
+				rsrq, prometheus.GaugeValue, sp.Rsrq, imei, simIdent, simImsi, simOpIdent, simOp, opName, rat,
+			)
+			//
 		}
 
 		err = modemSignal.Setup(0)
