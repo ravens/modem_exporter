@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/adrianmo/go-nmea"
 	"github.com/maltegrosse/go-modemmanager"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -107,6 +108,31 @@ var (
 		"LAC currently used by the modem",
 		modemlabels, nil,
 	)
+	//
+	lat = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, subsystem, "lat"),
+		"lat",
+		modemlabels, nil,
+	)
+
+	lon = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, subsystem, "lon"),
+		"Longitude",
+		modemlabels, nil,
+	)
+
+	alt = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, subsystem, "alt"),
+		"Altitude",
+		modemlabels, nil,
+	)
+
+	TimeFix = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, subsystem, "TimeFix"),
+		"Time To Fix",
+		modemlabels, nil,
+	)
+	//
 )
 
 type Exporter struct {
@@ -130,6 +156,12 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- rsrq
 	// fin
 	ch <- roaming
+	//
+	ch <- lat
+	ch <- lon
+	ch <- alt
+	ch <- TimeFix
+	//
 }
 
 func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
@@ -329,6 +361,56 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 		} else {
 			log.Println(err)
 		}
+		for i := len(mloc.GpsNmea.NmeaSentences) - 1; i >= 0; i-- {
+			fmt.Println(" - Location GpsNmeaSentences: ", mloc.GpsNmea.NmeaSentences[i])
+			sentence := mloc.GpsNmea.NmeaSentences[i]
+			s, err := nmea.Parse(sentence)
+			if err != nil {
+				log.Fatal(err)
+			}
+			if s.DataType() == nmea.TypeGGA {
+				m := s.(nmea.GGA)
+				fmt.Println("Raw sentence: ", m)
+				fmt.Println("Time: ", m.Time)
+				TFIX := mloc.GpsRaw.UtcTime
+				ch <- prometheus.MustNewConstMetric(
+					TimeFix, prometheus.GaugeValue, float64(TFIX.Unix()), imei, simIdent, simImsi, simOpIdent, simOp, opName, rat,
+				)
+
+				//fmt.Println("Validity: %s\n", m.Validity)
+				fmt.Println("Latitude GPS: ", nmea.FormatGPS(m.Latitude))
+
+				lAT := m.Latitude
+				ch <- prometheus.MustNewConstMetric(
+					lat, prometheus.GaugeValue, lAT, imei, simIdent, simImsi, simOpIdent, simOp, opName, rat,
+				)
+
+				fmt.Println("Latitude DMS: ", nmea.FormatDMS(m.Latitude))
+				fmt.Println("Longitude GPS: ", nmea.FormatGPS(m.Longitude))
+
+				lON := m.Longitude
+				ch <- prometheus.MustNewConstMetric(
+					lon, prometheus.GaugeValue, lON, imei, simIdent, simImsi, simOpIdent, simOp, opName, rat,
+				)
+
+				fmt.Println("Longitude DMS:  ", nmea.FormatDMS(m.Longitude))
+				fmt.Println("Altitude DMS:  ", nmea.FormatDMS(m.Altitude))
+
+				aLT := m.Altitude
+				ch <- prometheus.MustNewConstMetric(
+					alt, prometheus.GaugeValue, aLT, imei, simIdent, simImsi, simOpIdent, simOp, opName, rat,
+				)
+
+				fmt.Println("Altitude GPS: ", nmea.FormatGPS(m.Altitude))
+				fmt.Println("FixQuality GPS: ", m.FixQuality)
+
+				//fmt.Println("Speed: %f\n", m.Speed)
+				//fmt.Println("Course: %f\n", m.Course)
+				//fmt.Println("Date: %s\n", m.Date)
+				//fmt.Println("Variation: %f\n", m.Variation)
+			}
+
+		}
 
 		regState, err := modem3gpp.GetRegistrationState()
 		if err != nil {
@@ -405,7 +487,6 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 			log.Println(err)
 			continue
 		}
-
 	}
 
 }
