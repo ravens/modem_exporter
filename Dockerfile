@@ -1,4 +1,5 @@
 FROM golang:alpine AS builder
+RUN echo -e "http://nl.alpinelinux.org/alpine/v3.9/main\nhttp://nl.alpinelinux.org/alpine/v3.9/community" > /etc/apk/repositories
 RUN apk add git
 
 ADD ./ /go/src/github.com/ravens/modem_exporter/
