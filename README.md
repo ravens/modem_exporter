@@ -1,5 +1,5 @@
 # modem_exporter
-Prometheus Exporter for modemmanager metrics. 
+Prometheus Exporter for modemmanager metrics. This is a Fork from [modem_exporter](https://github.com/ravens/modem_exporter) project. 
 
 ## architecture
 
@@ -9,14 +9,11 @@ This exporter is basically piggy-backing on ModemManager and some [golang bindin
 
 Default port is 9898 and endpoint is http://EXPORTERENDPOINT:9898/metrics.
 
-## APN connection
-
-if the variable MODEM_EXPORTER_APN is populated, the modem will try to establish a minimal bearer with the provided string value each time the metrics URL is polled. 
-
 ## Metrics exported
 
 Right now are exposed:
-```
+
+``` bash
 # HELP modem_up Was the last modem query successful
 # TYPE modem_up gauge
 modem_up 1
@@ -40,22 +37,45 @@ modem_operatorcode{icc="0000000000000000000",imei="00000000000000",imsi="0000000
 modem_lac{icc="0000000000000000000",imei="00000000000000",imsi="00000000000000",operator="foobar",operatorid="00101",rat="lte",v_operator="VisitedNetwork"} 65534
 # TYPE modem_cellid gauge
 modem_cellid{icc="0000000000000000000",imei="00000000000000",imsi="00000000000000",operator="foobar",operatorid="00101",rat="lte",v_operator="VisitedNetwork"} 1.28013588e+08
+
+#GPS Metrics
+# HELP modem_lat Latitude
+# TYPE modem_lat gauge
+modem_lat{icc="0000000000000000000",imei="00000000000000",imsi="00000000000000",operator="foobar",operatorid="00101",rat="lte",v_operator="VisitedNetwork"} 40.6219309 
+
+# HELP modem_lon Longitude 
+# TYPE modem_lon gauge
+modem_lon{icc="0000000000000000000",imei="00000000000000",imsi="00000000000000",operator="foobar",operatorid="00101",rat="lte",v_operator="VisitedNetwork"} -5.596668
+
+# HELP modem_alt Altitude 
+# TYPE modem_alt gauge
+modem_alt{icc="0000000000000000000",imei="00000000000000",imsi="00000000000000",operator="foobar",operatorid="00101",rat="lte",v_operator="VisitedNetwork"} 710.9
+
+
+# Signal Metrics
+# HELP modem_rsrq Reference Signal Received Quality
+# TYPE modem_rsrq gauge
+modem_rsrq{icc="0000000000000000000",imei="00000000000000",imsi="00000000000000",operator="foobar",operatorid="00101",rat="lte",v_operator="VisitedNetwork"} -12
+
+# HELP modem_rssi Level of signal reported by the modem
+# TYPE modem_rssi gauge
+modem_rssi{icc="0000000000000000000",imei="00000000000000",imsi="00000000000000",operator="foobar",operatorid="00101",rat="lte",v_operator="VisitedNetwork"} -100
+
+# HELP modem_sinr Signal-to-interference-plus-noise ratio
+# TYPE modem_sinr gauge
+modem_sinr{icc="0000000000000000000",imei="00000000000000",imsi="00000000000000",operator="foobar",operatorid="00101",rat="lte",v_operator="VisitedNetwork"} 0
+
+# HELP modem_snr The LTE S/R ratio
+# TYPE modem_snr gauge
+modem_snr{icc="0000000000000000000",imei="00000000000000",imsi="00000000000000",operator="foobar",operatorid="00101",rat="lte",v_operator="VisitedNetwork"} 15.4
+
 ```
 
-Right now CellID, TAC and LAC are exposed as Gauge. Perhaps it should be labels. I am not really sure.
-
-## Hardware BOM
-
-Using Amazon:
-- M2 to USB2 converter https://www.amazon.es/gp/product/B06ZYXH76M - 32 euros
-- Dell M2 4G LT X7 Qualcomm Modem https://www.amazon.es/gp/product/B07QMQRZCN - 18 euros
-
-A linux machine with Ubuntu 20.04 to host it should be enough. 
+Only send GPS metrics if the GPS NMEA [TypeGGA](https://orolia.com/manuals/VSP/Content/NC_and_SS/Com/Topics/APPENDIX/NMEA_GGAmess.htm) is received.
 
 ## build
 
-```
+``` bash
 docker-compose build
 docker-compose up 
 ```
-

@@ -77,7 +77,6 @@ var (
 		"Signal-to-interference-plus-noise ratio",
 		modemlabels, nil,
 	)
-	/// he copiado los dos bloques anteriores
 
 	registered = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, subsystem, "registered"),
@@ -108,7 +107,7 @@ var (
 		"LAC currently used by the modem",
 		modemlabels, nil,
 	)
-	//
+	// GPS Metrics
 	lat = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, subsystem, "lat"),
 		"lat",
@@ -132,7 +131,6 @@ var (
 		"Time To Fix",
 		modemlabels, nil,
 	)
-	//
 )
 
 type Exporter struct {
@@ -150,18 +148,16 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- operatorcode
 	ch <- rssi
 	ch <- rsrp
-	// añadi estos dos
+	// New Signal metrics
 	ch <- snr
 	ch <- sinr
 	ch <- rsrq
-	// fin
 	ch <- roaming
-	//
+	// New GPS metrics
 	ch <- lat
 	ch <- lon
 	ch <- alt
 	ch <- TimeFix
-	//
 }
 
 func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
@@ -368,6 +364,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 			if err != nil {
 				log.Fatal(err)
 			}
+			// Send GPS metrics only if the final GGA data is received.
 			if s.DataType() == nmea.TypeGGA {
 				m := s.(nmea.GGA)
 				fmt.Println("Raw sentence: ", m)
@@ -377,7 +374,6 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 					TimeFix, prometheus.GaugeValue, float64(TFIX.Unix()), imei, simIdent, simImsi, simOpIdent, simOp, opName, rat,
 				)
 
-				//fmt.Println("Validity: %s\n", m.Validity)
 				fmt.Println("Latitude GPS: ", nmea.FormatGPS(m.Latitude))
 
 				lAT := m.Latitude
@@ -404,10 +400,6 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 				fmt.Println("Altitude GPS: ", nmea.FormatGPS(m.Altitude))
 				fmt.Println("FixQuality GPS: ", m.FixQuality)
 
-				//fmt.Println("Speed: %f\n", m.Speed)
-				//fmt.Println("Course: %f\n", m.Course)
-				//fmt.Println("Date: %s\n", m.Date)
-				//fmt.Println("Variation: %f\n", m.Variation)
 			}
 
 		}
@@ -468,7 +460,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 			ch <- prometheus.MustNewConstMetric(
 				rsrp, prometheus.GaugeValue, sp.Rsrp, imei, simIdent, simImsi, simOpIdent, simOp, opName, rat,
 			)
-			// nuevas medidas
+			// New Signal metrics
 			ch <- prometheus.MustNewConstMetric(
 				snr, prometheus.GaugeValue, sp.Snr, imei, simIdent, simImsi, simOpIdent, simOp, opName, rat,
 			)
